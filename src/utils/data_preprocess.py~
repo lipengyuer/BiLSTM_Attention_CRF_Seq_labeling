@@ -1,0 +1,399 @@
+# -*- coding: utf-8 -*-
+#收集到的语料格式不同，需要统一格式；可能有重复的语句，导致测试集与训练集有交叉的部分，影响评估结果的有效性。
+import data
+import os
+import hashlib
+
+data_set_names = ['crownpku_Small-Chinese-Corpus', 'icwb2-data', 'ProHiryu_bert-chinese-ner_data',
+                  'renminribao_corpus', 'ner_data_LatticeLSTM', 'inews_data']
+
+#读取crownpku_Small-Chinese-Corpus数据
+def load_crownpku_Small_Chinese_Corpus():
+    scr_dir = './crownpku_Small-Chinese-Corpus/'
+    file_names = os.listdir(scr_dir)
+    data_list = []
+    for file_name in file_names:
+        data_list += data.read_corpus(scr_dir + file_name)
+    #print("数据量是", len(data_list), data_list[:2])
+    return data_list
+
+def load_ProHiryu_bert_chinese_ner_data():
+    scr_dir = './ProHiryu_bert-chinese-ner_data/'
+    file_names = os.listdir(scr_dir)
+    data_list = []
+    for file_name in file_names:
+        data_list += data.read_corpus(scr_dir + file_name)
+    #print("数据量是", len(data_list), data_list[:2])
+    return data_list    
+
+def load_ner_data_LatticeLSTM():
+    '''这份数据的命名实体标记与常见的不同，需要替换一下:GPE-LOC, GEO-LOC(https://github.com/yanqiangmiffy/ner-english)'''
+    scr_dir = './ner_data_LatticeLSTM/'
+    file_names = os.listdir(scr_dir)
+    data_list = []
+    for file_name in file_names:
+        data_list += data.read_corpus(scr_dir + file_name)
+    new_data_list = []
+    for [chars, nertags] in data_list:
+        for i in range(len(chars)):
+            if nertags[i][-3:] in ['GPE', 'GEO']:
+                nertags[i] = nertags[i][:2] + 'LOC'
+            if nertags[i][0] in ['M', "E"]:
+                 nertags[i] = 'I' + nertags[i][1:]
+            if nertags[i][0] in ['S']:
+                 nertags[i] = 'B' + nertags[i][1:]
+        new_data_list.append([chars, nertags])
+        
+    #print("数据量是", len(data_list), new_data_list[:2])
+    return new_data_list 
+
+def load_renminribao_corpus():
+    postag2nertag = {'nr': 'PER', 'ns':"LOC", 'nt': "ORG"}
+    
+    '''人民日报的语料实际上是词性标注语料，需要把里面的人名，地名，机构名特别标注出来，并组织成所需的格式。'''
+    lines = list(open('./renminribao_corpus/pro_corpus.txt', 'r',  encoding='utf8'))
+    lines = list(filter(lambda x: len(x)>10, lines))
+    #print("人民日报语料的句子数量是", len(lines))
+    data_list = []
+    for line in lines:
+        word_postags = line.split()
+        words, postags = [], []
+        new_chars, new_postags = [], []
+        for word_postag in word_postags:
+            word_postag_list = word_postag.split('/')
+            if len(word_postag_list)!=2:#有些词语内部有空格，数量是111句，暂时放弃这些词语
+                continue
+            [word, postag] = word_postag_list
+            if postag not in postag2nertag:
+                for char in word: 
+                    new_chars.append(char)
+                    new_postags.append("O")
+            else:
+                ner_tag = postag2nertag[postag]
+                new_chars.append(word[0])
+                new_postags.append('B-' + ner_tag)
+                for char in word[1:]:
+                    new_chars.append(char)
+                    new_postags.append('I-' + ner_tag)
+        data_list.append([new_chars, new_postags])
+    #print("数据量是", len(data_list), data_list[:2])
+    return data_list
+    
+def load_inews_data():
+    ner_tag_set = set({'PER', "LOC", "ORG"})
+    lines = list(open('./inews_data/ner_train.txt', 'r', encoding='utf8'))
+    lines = list(filter(lambda x: len(x)>10, lines))
+    #print("inews的数据量是", len(lines))
+    data_list = []
+    for line in lines:
+        words = line.split()
+        char_list, ner_list = [], []
+        for word in words:
+            word_nertag_list = word.split('/')
+            if len(word_nertag_list)==1:
+                for char in word:
+                    char_list.append(char)
+                    ner_list.append("O")
+            if len(word_nertag_list)==2 and len(word_nertag_list[0])> 0 and word_nertag_list[1] in ner_tag_set:
+                #print(word_nertag_list)
+                char_list.append(word_nertag_list[0][0])
+                ner_list.append("B-" + word_nertag_list[1])
+                for char in word_nertag_list[0][1:]:
+                    char_list.append(char)
+                    ner_list.append('I-' + word_nertag_list[1])
+        data_list.append([char_list, ner_list])
+    return data_list
+ 
+def load_weibo_data():
+    ner_tag_set = set({'PER', "LOC", "ORG"})
+    data_dir = './Weibo/'
+    file_names = os.listdir(data_dir)
+    lines = []
+    for file_name in file_names:
+        temp_lines = data.read_corpus(data_dir + file_name)
+        lines += temp_lines
+    
+    lines = list(map(lambda x: [list(map(lambda y: y[0], x[0])), x[1]], lines))
+    #print(lines[0])
+    for line in lines:
+        for i in range(len(line[0])):
+            if '.NAM' in line[1][i]:
+                line[1][i] = line[1][i].replace('.NAM', '')
+            else:
+                line[1][i] = "O"
+    new_data_list = []
+    for [chars, nertags] in lines:
+        for i in range(len(chars)):
+            if nertags[i][-3:] in ['GPE', 'GEO']:
+                nertags[i] = nertags[i][:2] + 'LOC'
+        new_data_list.append([chars, nertags])
+    return lines 
+
+# granularity is different
+def load_Chinese_Literature_NER_RE_data():
+    data_dir = './Chinese-Literature-NER-RE-Dataset/'
+    file_names = os.listdir(data_dir)
+    lines = []
+    for file_name in file_names:
+        temp_lines = data.read_corpus(data_dir + file_name)
+        lines += temp_lines
+    
+    #print(lines[0])
+    for line in lines:
+        for i in range(len(line[0])):
+            if line[1][i][1:] == '_Person':
+                line[1][i] = line[1][i].replace('_Person', '-PER')
+            elif line[1][i][1:] == '_Location':
+                line[1][i] = line[1][i].replace('_Location', '-LOC')
+            elif line[1][i][1:] == '_Organization':
+                line[1][i] = line[1][i].replace('_Organization', '-ORG')
+            else:
+                line[1][i] = "O"
+    new_data_list = []
+    for [chars, nertags] in lines:
+        for i in range(len(chars)):
+            if nertags[i][-3:] in ['GPE', 'GEO']:
+                nertags[i] = nertags[i][:2] + 'LOC'
+        new_data_list.append([chars, nertags])
+    #print("load_Chinese_Literature_NER_RE_data ", lines[:3])
+    return lines 
+
+def load_shiyybua_ner_data():
+    sentences = list(open('./shiyybua_ner/source.txt', 'r', encoding='utf8').readlines())
+    targets = list(open('./shiyybua_ner/target.txt', 'r', encoding='utf8').readlines())
+    data_list = []
+    for i in range(len(sentences)):
+        words = sentences[i].replace('\n', '').split()
+        nertags = targets[i].replace('\n', '').split()
+        temp_chars = []
+        temp_nertags = []
+        for j in range(len(words)):
+            word = words[j]
+            tag = nertags[j]
+            if tag[-3:] in ['ORG', 'LOC', 'PER']:
+                if tag[0] == 'B':
+                    if len(word)==1:
+                        temp_chars.append(word)
+                        temp_nertags.append(tag)
+                    else:
+                        temp_chars += list(word)
+                        temp_nertags += [tag] + ['I' + tag[1:]]*(len(word)-1)
+                elif tag[0] == 'I':
+                    if len(word)==1:
+                        temp_chars.append(word)
+                        temp_nertags.append(tag)
+                    else:
+                        temp_chars += list(word)
+                        temp_nertags += [tag]*len(word)     
+            else:
+                 temp_chars += list(word)
+                 temp_nertags += ['O']*len(word)
+        data_list.append([temp_chars, temp_nertags])
+    #print(data_list[:2])
+    return data_list
+                      
+def load_boson_data():
+
+    scr_dir = './boson_data/boson_ner_format.txt'
+    data_list = data.read_corpus(scr_dir)
+    new_data_list = []
+    for [chars, nertags] in data_list:
+        for i in range(len(chars)):
+            #print(nertags[i])
+            if nertags[i][-4:] not in ['-ORG', '-LOC', '-PER']:
+                nertags[i] = "O"
+        new_data_list.append([chars, nertags])
+        
+   # print("数据量是", len(data_list), new_data_list[:2])
+    return new_data_list 
+
+def load_ZR_Huang_ner_data():
+    data_dir = './ZR_Huang_ner_data/'
+    sentences = list(open(data_dir + 'source.txt', 'r', encoding='utf8'))[2:]
+    nertags = list(open(data_dir + 'target.txt', 'r', encoding='utf8'))[2:]
+    sentences = list(map(lambda x: x.replace('\n', '').split(' '), sentences))
+    nertags = list(map(lambda x: x.replace('\n', '').split(' '), nertags))
+    data_list = list(zip(sentences, nertags))
+    data_list = list(filter(lambda x: len(x[0])==len(x[1]), data_list))
+    #print(data_list[:5])
+    return data_list
+
+def load_mhcao916_ner_data():
+    data_dir = './mhcao916_ner_data/'
+    file_names = os.listdir(data_dir)
+    lines = []
+    for file_name in file_names:
+        temp_lines = data.read_corpus(data_dir + file_name)
+        lines += temp_lines
+    new_data_list = []
+    for [chars, nertags] in lines:
+        for i in range(len(chars)):
+            #print(nertags[i])
+            if nertags[i][-4:] in [ '-SCE', '-DLO']:
+                nertags[i] = nertags[i][0] + '-LOC'
+            elif nertags[i][-4:] in ['-SCE', '-HOT']:
+                nertags[i] = nertags[i][0] + '-ORG'
+            elif nertags[i][-4:] in ['-PER', '-ORG']:
+                pass
+            else:
+                nertags[i] = "O"
+        new_data_list.append([chars, nertags])
+    #print(new_data_list[:5])
+    return new_data_list
+
+def load_crownpku_ner_data():
+    data_dir = './crownpku_ner_data/'
+    file_names = os.listdir(data_dir)
+    lines = []
+    for file_name in file_names:
+        temp_lines = data.read_corpus(data_dir + file_name)
+        lines += temp_lines
+    return lines
+
+def load_manu_labeled_data():
+    ner_tag_set = set({'PER', "LOC", "ORG"})
+    data_dir = './manu_labeled_data/'
+    file_names = os.listdir(data_dir)
+    lines = []
+    for file_name in file_names:
+        temp_lines = list(open(data_dir + file_name, 'r', encoding='utf8'))
+        temp_lines = list(filter(lambda x: len(x)>10, temp_lines))
+        lines += temp_lines
+    #print("manu data 的数据量是", len(lines))
+    data_list = []
+    for line in lines:
+        words = line.split()
+        char_list, ner_list = [], []
+        for word in words:
+            word_nertag_list = word.split('/')
+            if len(word_nertag_list)==1:
+                for char in word:
+                    char_list.append(char)
+                    ner_list.append("O")
+            if len(word_nertag_list)==2 and len(word_nertag_list[0])> 0 and word_nertag_list[1] in ner_tag_set:
+                #print(word_nertag_list)
+                char_list.append(word_nertag_list[0][0])
+                ner_list.append("B-" + word_nertag_list[1])
+                for char in word_nertag_list[0][1:]:
+                    char_list.append(char)
+                    ner_list.append('I-' + word_nertag_list[1])
+        data_list.append([char_list, ner_list])
+    return data_list
+
+def remove_duplicate_sentences():
+    data_list = []
+    data_list += load_crownpku_Small_Chinese_Corpus()
+    data_list += load_ProHiryu_bert_chinese_ner_data()
+    data_list += load_ner_data_LatticeLSTM()
+    data_list += load_renminribao_corpus()
+    data_list += load_inews_data()
+    data_list += load_weibo_data()
+    data_list += load_manu_labeled_data()
+    data_list += load_shiyybua_ner_data()
+    data_list += load_boson_data()
+    data_list += load_ZR_Huang_ner_data()
+    data_list += load_mhcao916_ner_data()
+    data_list += load_crownpku_ner_data()
+    ###data_list += load_Chinese_Literature_NER_RE_data()# granularity is different
+    #print(data_list[-3:])
+    import random
+    random.shuffle(data_list)
+    data_list = data_list[:1000]
+    distinct_data_map = {}
+    for sentence in data_list:
+        sentence_str = str(sentence[0])
+        code = hashlib.md5(sentence_str.encode(encoding='utf_8')).hexdigest()
+        if code not in distinct_data_map and len(sentence[0])==len(sentence[1]):
+            distinct_data_map[code] = sentence
+    print("原始数据的数量是", len(data_list),'去重后的数量是', len(distinct_data_map))
+    data_list = list(distinct_data_map.values())
+
+    #split sentences. some lines contains multi sentences
+    new_data_list = []
+    for line in data_list:
+        char_list, tags = [], []
+        for i in range(len(line[0])):
+            char_list.append(line[0][i])
+            tags.append(line[1][i])
+            if line[0][i] in ['。', '']:
+                new_data_list.append([char_list, tags])
+                char_list, tags = [], []
+        if len(char_list)>0:
+            new_data_list.append([char_list, tags])
+
+    distinct_data_map = {}
+    for sentence in new_data_list:
+        sentence_str = str(sentence[0])
+        code = hashlib.md5(sentence_str.encode(encoding='utf_8')).hexdigest()
+        if code not in distinct_data_map:
+            distinct_data_map[code] = sentence
+
+    new_data_list = list(distinct_data_map.values())
+
+    print('data size after spliting sentences is ', len(new_data_list))   
+    return new_data_list
+
+def restore_data_as_crf_format(data_list, file_name):
+    '''按照crf++的格式存储数据'''
+    with open('./data_path/' + file_name, 'w', encoding='utf8') as f:
+        for [chars, ner_tags] in data_list:
+            #if len(chars)>200:
+            #    print(len(chars), len(ner_tags))
+            #    print(chars)
+            #    print( ner_tags)
+            for i in range(len(chars)):
+
+                #if ner_tags[i][0]=="S":
+                    #print(chars, ner_tags)
+                f.write(chars[i] + '\t' + ner_tags[i] + '\n')
+            f.write('\n')
+       
+def change_label_to_BIESO(data_list):
+   new_data_list = []
+   for line in data_list:
+       [chars, nertags] = line
+       new_nertags, temp_nertags = [], []
+       for i in range(len(chars)):
+              
+           if nertags[i][0] == 'O':
+               if i-1>=0 and nertags[i-1][0] == 'B':
+                   if i-2>0 and nertags[i-2][0] == 'B':
+                       temp_nertags[-2] = 'S'
+                   temp_nertags[-1] = 'S'
+                   temp_nertags.append('O')
+                   new_nertags += temp_nertags
+                   temp_nertags = []
+               elif i-1>=0 and nertags[i-1][0] == 'I':
+                   #print(temp_nertags, i-1)
+                   temp_nertags[-1] = 'E' + nertags[i-1][1:]
+                   temp_nertags.append('O')
+                   new_nertags += temp_nertags
+                   temp_nertags = []
+               else: 
+                   temp_nertags.append(nertags[i])
+                   new_nertags += temp_nertags
+                   temp_nertags = []
+           else:
+               temp_nertags.append(nertags[i])
+       new_nertags += temp_nertags
+       #print(new_nertags)
+       new_data_list.append([chars, new_nertags])
+   return new_data_list
+                 
+from sklearn.model_selection import train_test_split
+if __name__ == '__main__':
+    data_list = remove_duplicate_sentences()
+    data_list = change_label_to_BIESO(data_list)
+    train_data_list, test_data_list, _, _ = train_test_split(data_list, data_list, test_size=0.1)
+    restore_data_as_crf_format(train_data_list, 'train_data')
+    restore_data_as_crf_format(test_data_list, 'test_data')
+    #load_inews_data()
+    #load_boson_data()
+    #load_ZR_Huang_ner_data()
+    #load_mhcao916_ner_data()
+    
+    
+    
+    
+    
+    

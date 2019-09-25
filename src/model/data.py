@@ -1,6 +1,6 @@
 import sys, pickle, os, random
 import numpy as np
-from config import run_time     
+
 def read_corpus(corpus_path):
     """
     read corpus and return the list of samples
@@ -13,16 +13,41 @@ def read_corpus(corpus_path):
     sent_, tag_ = [], []
     for line in lines:
         if line != '\n':
+            #print(line.strip().split())
             char_label = line.strip().split()
             if len(char_label)<2 or len(char_label)>2: continue
             [char, label] = char_label
             sent_.append(char)
             tag_.append(label)
         else:
-            data.append((sent_, tag_))
+            data.append((sent_, tag_))#带上路径，后面追查乱码
             sent_, tag_ = [], []
+
     return data
 
+def read_corpus_preprocess(corpus_path):
+    """
+    read corpus and return the list of samples
+    :param corpus_path:
+    :return: data
+    """
+    data = []
+    with open(corpus_path, encoding='utf-8') as fr:
+        lines = fr.readlines()
+    sent_, tag_ = [], []
+    for line in lines:
+        if line != '\n':
+            #print(line.strip().split())
+            char_label = line.strip().split()
+            if len(char_label)<2 or len(char_label)>2: continue
+            [char, label] = char_label
+            sent_.append(char)
+            tag_.append(label)
+        else:
+            data.append((sent_, tag_, corpus_path))#带上路径，后面追查乱码
+            sent_, tag_ = [], []
+
+    return data
 
 def vocab_build(vocab_path, corpus_path, min_count):
     """
@@ -79,7 +104,6 @@ def sentence2id(sent, word2id):
             word = '<ENG>'
         if word not in word2id:
             word = '<UNK>'
-#         print(ori_word, word, word2id[word])
         sentence_id.append(word2id[word])
     return sentence_id
 
@@ -99,6 +123,7 @@ def read_dictionary(vocab_path):
 
 def random_embedding(vocab, embedding_dim):
     """
+
     :param vocab:
     :param embedding_dim:
     :return:
@@ -110,11 +135,12 @@ def random_embedding(vocab, embedding_dim):
 
 def pad_sequences(sequences, pad_mark=0):
     """
+
     :param sequences:
     :param pad_mark:
     :return:
     """
-    max_len = max(map(lambda x : len(x), sequences))#run_time.MAX_SEQ_LEN#
+    max_len = max(map(lambda x : len(x), sequences))
     seq_list, seq_len_list = [], []
     for seq in sequences:
         seq = list(seq)
@@ -134,27 +160,25 @@ def batch_yield(data, batch_size, vocab, tag2label, shuffle=False):
     :param shuffle:
     :return:
     """
-    data_list = []
     if shuffle:
         random.shuffle(data)
-
     seqs, labels = [], []
     for (sent_, tag_) in data:
         sent_ = sentence2id(sent_, vocab)
         label_ = [tag2label[tag] for tag in tag_]
+
         if len(seqs) == batch_size:
-            data_list.append([seqs, labels])
+            yield seqs, labels
             seqs, labels = [], []
 
         seqs.append(sent_)
         labels.append(label_)
 
     if len(seqs) != 0:
-        data_list.append([seqs, labels])
-    return data_list
-    
+        yield seqs, labels
+
 def extract_char_vec_from_pretrained():
-    lines = list(open('./data_path/pretrained_char_vec.txt', 'r', encoding='utf8').readlines())
+    lines = list(open('../../data/data_path/pretrained_char_vec.txt', 'r', encoding='utf8').readlines())
     char_vec_map = {}
     for line in lines:
         char_vec = line.replace("\n", '').split(" ")
@@ -163,14 +187,14 @@ def extract_char_vec_from_pretrained():
         vec = list(map(lambda x: float(x), vec))
         char_vec_map[char] = vec
 
-    char_id = pickle.load(open('./data_path/word2id.pkl', 'rb'))
+    char_id = pickle.load(open('../../data/data_path/word2id.pkl', 'rb'))
     char_id = list(char_id.items())
     embending = np.zeros((len(char_id), len(vec)))
     for i in range(len(char_id)):
         [char, id] = char_id[i]
-        if char in char_vec:
+        if char in char_vec_map:
             embending[i, :] = char_vec_map[char]
-    pickle.dump(embending, open('./data_path/pretrained_char_vec.pkl', 'wb'))
+    pickle.dump(embending, open('../../data/data_path/pretrained_char_vec.pkl', 'wb'))
 
 
 if __name__ == '__main__':

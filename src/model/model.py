@@ -79,7 +79,7 @@ class BiLSTMCRF():
             self.multi_BiLSTM_layer(hidden_dim_list=hidden_dim)
         else:
             self.BiLSTM_layer(hidden_dim[0])
-#         self.logits = self.attention(self.logits)
+        self.logits = self.attention(self.logits)
         self.CRF_layer()
         
         #优化器

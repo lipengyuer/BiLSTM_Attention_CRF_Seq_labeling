@@ -92,7 +92,7 @@ class BiLSTMCRF():
         #初始化图中的变量
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        config.gpu_options.per_process_gpu_memory_fraction = 0.4  # need ~700MB GPU memory
+        config.gpu_options.per_process_gpu_memory_fraction = 0.7  # need ~700MB GPU memory
         self.sess = tf.Session(config=config)
         self.sess.run(tf.global_variables_initializer())
                       
@@ -201,7 +201,7 @@ class BiLSTMCRF():
         data_list = data_loader.read_corpus(run_time.PATH_TRAINING_CORPUS, )
         test_data_list = data_loader.read_corpus(run_time.PATH_TESTING_CORPUS)
         testing_data = data_loader.batch_yield(test_data_list,batch_size, self.word_id_map, run_time.TAG_LABEL_MAP, shuffle=True)
-            
+
         for epoch in range(epoch_num):
             random.shuffle(data_list)
             traing_data = data_loader.batch_yield(data_list, batch_size, self.word_id_map, run_time.TAG_LABEL_MAP, shuffle=True)
@@ -213,13 +213,13 @@ class BiLSTMCRF():
                 elif lr_decay_strategy=='decay':
                     current_lr = self.lr_decay(init_lr, global_step)
                 else:
-                    if epoch<10:
+                    if epoch<2:
                         current_lr = 0.01
                     else:
                         current_lr = 0.001
                 data_dict, _ = self.get_feed_dict(seqs, labels=labels, lr=current_lr, dropout=0.5)
                 _, loss_train = self.sess.run([self.train_op, self.loss], feed_dict=data_dict)
-                if step%20==0:
+                if step%100==0:
                     print(epoch, step,'/', len(traing_data) , "loss_train", loss_train, current_lr)
             if epoch%5==0:
                 print("训练集:")

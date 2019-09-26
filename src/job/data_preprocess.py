@@ -86,17 +86,17 @@ def combine_words(line, chinese_family_name_set):
 
 def load_renminribao_corpus():
 
-    postag2nertag = {'nr': 'PER', 'ns':"LOC", 'nt': "ORG", "nto": "ORG"}
+    postag2nertag = {'nr': 'PER', 'ns':"LOC", 'nt': "ORG", "nto": "ORG", 'nrf': "PER", 'nsf': "LOC", 'nis': 'ORG', 'ntc': "ORG"}
     postag2other_tag = { 'mq': 'O', "nz": "O"}
     chinese_family_name = list(map(lambda x: x[0], open('../../data/named_entity_vocabs/FamilyName_300.txt', 'r', encoding='utf8').readlines()))
     chinese_family_name = list(map(lambda x: x.replace("\n", ''), chinese_family_name))
     chinese_family_name = set(chinese_family_name)
-    print(chinese_family_name)
     
     '''人民日报的语料实际上是词性标注语料，需要把里面的人名，地名，机构名特别标注出来，并组织成所需的格式。'''
     #人民日报语料存在大量实体嵌套情况，以及由若干个词语组成一个实体的情况，需要专门处理；
     #中国人名一般会把姓和名分开，需要处理
-    lines = list(open('../../data/corpus/renminribao_corpus/corpus.txt', 'r',  encoding='utf8'))
+    lines = []
+    lines += list(open('../../data/corpus/renminribao_corpus/corpus.txt', 'r',  encoding='utf8'))
     lines = list(map(lambda x: x.split('/m  ')[1] if '/m  ' in x else "", lines))
     lines += list(open('../../data/corpus/renminribao_corpus/2014_corpus.txt', 'r',  encoding='utf8'))
     lines += list(open('../../data/corpus/renminribao_corpus/pro_corpus.txt', 'r',  encoding='utf8'))
@@ -398,7 +398,7 @@ def remove_duplicate_sentences():
 #     data_list += load_crownpku_Small_Chinese_Corpus()
 #     data_list += load_ProHiryu_bert_chinese_ner_data()
 #     data_list += load_ner_data_LatticeLSTM()
-#     data_list += load_renminribao_corpus()
+    data_list += load_renminribao_corpus()
 #     data_list += load_weibo_data()#杂质较多
 #     data_list += load_manu_labeled_data()
 #     data_list += load_shiyybua_ner_data()
@@ -407,10 +407,10 @@ def remove_duplicate_sentences():
 #     data_list += load_mhcao916_ner_data()
 #     data_list += load_crownpku_ner_data()
 #     data_list += load_normal("../../data/corpus/rmrb1997/")
-    data_list += load_normal("../../data/corpus/ChineseNER/")
+#     data_list += load_normal("../../data/corpus/ChineseNER/")
 #     data_list += load_inews_data()
     ###data_list += load_Chinese_Literature_NER_RE_data()# granularity is different
-    import random 
+    import random
     random.shuffle(data_list)
 
     #split sentences. some lines contains multi sentences
@@ -428,7 +428,7 @@ def remove_duplicate_sentences():
             new_data_list.append([char_list, tags, line[2]])
     data_list = remove_dup(new_data_list)
     data_list = remove_spam(data_list)
-    data_list = data_list[:10000]
+#     data_list = data_list[:10000]
     print('data size after spliting sentences is ', len(data_list))   
     return data_list
 
@@ -712,7 +712,7 @@ if __name__ == '__main__':
     print("开始修改标签")
     data_list = change_label_to_BIESO_new(data_list)
     print("开始分割训练集和测试集")
-    train_data_list, test_data_list, _, _ = train_test_split(data_list, data_list, test_size=0.05)
+    train_data_list, test_data_list, _, _ = train_test_split(data_list, data_list, test_size=0.02)
     print("对训练集进行扩增")
     train_data_list = data_augment(train_data_list)
     print("存储数据")

@@ -22,7 +22,7 @@ def train_model():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # default: 0
     init_lr = '0.001'
     seq_lab_model = model.BiLSTMCRF(use_pretrained_embeddings=True, embedding_dim=100, hidden_dim = [150, 100], if_multi_layer=int(if_multi_layer))
-    seq_lab_model.fit(epoch_num=1000, init_lr=float(init_lr), batch_size=200, app_name=app_name, lr_decay_strategy=lr_decay_strategy)
+    seq_lab_model.fit(epoch_num=500, init_lr=float(init_lr), batch_size=200, app_name=app_name, lr_decay_strategy=lr_decay_strategy)
     
 if __name__ == '__main__':
     train_model()

@@ -392,27 +392,31 @@ def remove_spam(data_list):
         else:
             new_list.append(line)
     return new_list
-        
-def remove_duplicate_sentences():
+
+def load_corpus():
     data_list = []
-#     data_list += load_crownpku_Small_Chinese_Corpus()
-#     data_list += load_ProHiryu_bert_chinese_ner_data()
-#     data_list += load_ner_data_LatticeLSTM()
+    data_list += load_crownpku_Small_Chinese_Corpus()
+    data_list += load_ProHiryu_bert_chinese_ner_data()
+    data_list += load_ner_data_LatticeLSTM()
     data_list += load_renminribao_corpus()
-#     data_list += load_weibo_data()#杂质较多
-#     data_list += load_manu_labeled_data()
-#     data_list += load_shiyybua_ner_data()
-#     data_list += load_boson_data()
-#     data_list += load_ZR_Huang_ner_data()
-#     data_list += load_mhcao916_ner_data()
-#     data_list += load_crownpku_ner_data()
-#     data_list += load_normal("../../data/corpus/rmrb1997/")
-#     data_list += load_normal("../../data/corpus/ChineseNER/")
-#     data_list += load_inews_data()
+    data_list += load_weibo_data()#杂质较多
+    data_list += load_manu_labeled_data()
+    data_list += load_shiyybua_ner_data()
+    data_list += load_boson_data()
+    data_list += load_ZR_Huang_ner_data()
+    data_list += load_mhcao916_ner_data()
+    data_list += load_crownpku_ner_data()
+    data_list += load_normal("../../data/corpus/rmrb1997/")
+    data_list += load_normal("../../data/corpus/ChineseNER/")
+    data_list += load_inews_data()
     ###data_list += load_Chinese_Literature_NER_RE_data()# granularity is different
     import random
     random.shuffle(data_list)
 
+ 
+def remove_duplicate_sentences():
+
+    data_list = load_corpus()
     #split sentences. some lines contains multi sentences
     new_data_list = []
     for line in data_list:
